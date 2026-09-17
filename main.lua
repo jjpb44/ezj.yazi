@@ -346,7 +346,10 @@ local init = ya.sync(function(state)
 	-- Chords by default; direct single-key hints when the hint-key pool covers
 	-- every visible row. Labels pack contiguously over the non-hovered rows (the
 	-- hovered row keeps its motion number), so no label goes to waste.
-	state.single_mode = #visible_files <= #state.first_keys
+	-- The hovered row keeps its number (unless hint_hovered), so size the
+	-- threshold by the rows actually labeled: 7 visible rows need only 6 keys.
+	local needed = state.opt_hint_hovered and #visible_files or (#visible_files - 1)
+	state.single_mode = needed <= #state.first_keys
 	local labels = state.single_mode and state.first_keys or state.double_labels
 	state.hint_lookup, state.hint_pos_label = {}, {}
 	local packed = 0
