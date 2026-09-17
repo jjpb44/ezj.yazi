@@ -127,18 +127,17 @@ local toggle_ui = ya.sync(function(st)
 			return ui.Line({})
 		end
 
-		local pad = string.rep(" ", math.max(0, width - #label))
 		if st.double_first_key ~= nil then
 			if label:sub(1, 1) == st.double_first_key then
 				return ui.Line({
-					ui.Span(pad .. label:sub(1, 1)):fg(st.opt_first_key_fg),
-					ui.Span(label:sub(2)):fg(st.opt_icon_fg),
+					ui.Span(label:sub(1, 1)):fg(st.opt_first_key_fg),
+					ui.Span(label:sub(2) .. " "):fg(st.opt_icon_fg),
 				})
 			end
 			-- waiting for the second key: dim unreachable hints
-			return ui.Line({ ui.Span(pad .. label):fg(st.opt_dim_fg) })
+			return ui.Line({ ui.Span(label .. " "):fg(st.opt_dim_fg) })
 		end
-		return ui.Line({ ui.Span(pad .. label):fg(st.opt_icon_fg) })
+		return ui.Line({ ui.Span(label .. " "):fg(st.opt_icon_fg) })
 	end
 
 	st.status_mode_saved = Status.mode
