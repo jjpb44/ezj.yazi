@@ -1,48 +1,12 @@
 --- @since 25.12.29
 
--- Default hint key configuration
--- IMPORTANT: first_keys and second_keys must NOT overlap
+-- Default hint keys: left-hand home column-first. first_keys x second_keys
+-- (overlap is INTENTIONAL - chords like "ww" are valid labels).
 -- stylua: ignore
-local DEFAULT_FIRST_KEYS = {
-  "a", "s", "d", "f", "g", "e", "r", "c", "w", "t", "v", "x", "b"
-}
+local DEFAULT_FIRST_KEYS = { "w", "e", "a", "s", "d" }
 
 -- stylua: ignore
-local DEFAULT_SECOND_KEYS = {
-  "u", "i", "o", "h", "j", "k", "l", "n", "p", "y", "m"
-}
-
--- Default single labels (for backward compatibility with original order)
--- stylua: ignore
-local DEFAULT_SINGLE_LABELS = {
-  "p", "b", "e", "t", "a", "o", "i", "n", "s", "r", "h", "l", "d", "c",
-  "u", "m", "f", "g", "w", "v", "k", "j", "x", "y", "q"
-}
-
--- Default double labels (for backward compatibility with original order)
--- stylua: ignore
-local DEFAULT_DOUBLE_LABELS = {
-  "au", "ai", "ao", "ah", "aj", "ak", "al", "an",
-  "su", "si", "so", "sh", "sj", "sk", "sl", "sn",
-  "du", "di", "do", "dh", "dj", "dk", "dl", "dn",
-  "fu", "fi", "fo", "fh", "fj", "fk", "fl", "fn",
-  "gu", "gi", "go", "gh", "gj", "gk", "gl", "gn",
-  "eu", "ei", "eo", "eh", "ej", "ek", "el", "en",
-  "ru", "ri", "ro", "rh", "rj", "rk", "rl", "rn",
-  "cu", "ci", "co", "ch", "cj", "ck", "cl", "cn",
-  "wu", "wi", "wo", "wh", "wj", "wk", "wl", "wn",
-  "tu", "ti", "to", "th", "tj", "tk", "tl", "tn",
-  "vu", "vi", "vo", "vh", "vj", "vk", "vl", "vn",
-  "xu", "xi", "xo", "xh", "xj", "xk", "xl", "xn",
-  "bu", "bi", "bo", "bh", "bj", "bk", "bl", "bn",
-  "qu", "qi", "qo", "qh", "qj", "qk", "ql", "qn",
-  "ap", "ay", "am", "sp", "sy", "sm", "dp", "dy",
-  "dm", "fp", "fy", "fm", "gp", "gy", "gm", "ep",
-  "ey", "em", "rp", "ry", "rm", "cp", "cy", "cm",
-  "wp", "wy", "wm", "tp", "ty", "tm", "vp", "vy",
-  "vm", "xp", "xy", "xm", "bp", "by", "bm", "qp",
-  "qy", "qm",
-}
+local DEFAULT_SECOND_KEYS = { "w", "e", "a", "s", "d" }
 
 ---@param str string
 ---@return string[]
@@ -63,24 +27,7 @@ local function normalize_keys(keys)
 	return keys
 end
 
---- Generate single labels from first_keys and second_keys combined
----@param first_keys string[]
----@param second_keys string[]
----@return string[]
-local function generate_single_labels(first_keys, second_keys)
-	local labels = {}
-	-- Add all first_keys
-	for _, k in ipairs(first_keys) do
-		table.insert(labels, k)
-	end
-	-- Add all second_keys
-	for _, k in ipairs(second_keys) do
-		table.insert(labels, k)
-	end
-	return labels
-end
-
---- Generate double labels from first_keys × second_keys
+--- Generate chord labels from first_keys × second_keys
 ---@param first_keys string[]
 ---@param second_keys string[]
 ---@return string[]
@@ -122,6 +69,9 @@ local function generate_input_keys(first_keys, second_keys)
 	table.insert(keys, "<Backspace>")
 	table.insert(keys, "q")
 	table.insert(keys, "<C-q>")
+	-- Movement keys: j/k stay free for cursor motion, never used as hints
+	table.insert(keys, "j")
+	table.insert(keys, "k")
 	return keys
 end
 
@@ -134,23 +84,6 @@ local function build_input_cands(input_keys)
 		table.insert(cands, { on = v })
 	end
 	return cands
-end
-
---- Validate that first_keys and second_keys don't overlap
----@param first_keys string[]
----@param second_keys string[]
----@return boolean, string?
-local function validate_keys(first_keys, second_keys)
-	local first_set = {}
-	for _, k in ipairs(first_keys) do
-		first_set[k] = true
-	end
-	for _, k in ipairs(second_keys) do
-		if first_set[k] then
-			return false, "Key '" .. k .. "' appears in both first_keys and second_keys. They must not overlap."
-		end
-	end
-	return true, nil
 end
 
 local status_mode_ej = function(self)
@@ -179,7 +112,6 @@ local toggle_ui = ya.sync(function(st)
 	-- Entity.number), padded to the same width so the filename never shifts.
 	st.entity_number_saved = Entity.number
 	local orig_number = st.entity_number_saved
-	local single = st.current_files_count <= #st.single_labels
 	local width = st.number_width or 3
 
 	Entity.number = function(_, index, file, hovered, last_index)
@@ -196,11 +128,15 @@ local toggle_ui = ya.sync(function(st)
 		end
 
 		local pad = string.rep(" ", math.max(0, width - 1 - #label))
-		if not single and st.double_first_key ~= nil and label:sub(1, 1) == st.double_first_key then
-			return ui.Line({
-				ui.Span(pad .. label:sub(1, 1)):fg(st.opt_first_key_fg),
-				ui.Span(label:sub(2) .. " "):fg(st.opt_icon_fg),
-			})
+		if st.double_first_key ~= nil then
+			if label:sub(1, 1) == st.double_first_key then
+				return ui.Line({
+					ui.Span(pad .. label:sub(1, 1)):fg(st.opt_first_key_fg),
+					ui.Span(label:sub(2) .. " "):fg(st.opt_icon_fg),
+				})
+			end
+			-- waiting for the second key: dim unreachable hints
+			return ui.Line({ ui.Span(pad .. label .. " "):fg(st.opt_dim_fg) })
 		end
 		return ui.Line({ ui.Span(pad .. label .. " "):fg(st.opt_icon_fg) })
 	end
@@ -224,39 +160,7 @@ end)
 ---| "cancelled" user cancelled
 ---| "jumped" successfully jumped to file
 
---- State: Single-key mode (≤25 files)
---- Waits for a single key press and jumps to the file
---- Uses: input_cands, input_keys, single_key_files, current_files_count, cursor, offset
----@param ctx easyjump.InitResult
-local function read_single_key(ctx)
-	while true do
-		local cand = ya.which({ cands = ctx.input_cands, silent = true })
-
-		if cand == nil then
-		-- invalid key, wait for next
-		elseif ctx.input_keys[cand] == "<Esc>" or ctx.input_keys[cand] == "z" or ctx.input_keys[cand] == "q" then
-			return -- cancelled
-		elseif ctx.input_keys[cand] == "<C-q>" then
-			ya.emit("plugin", { "quit-ask" })
-			return -- quit yazi
-		else
-			local key = ctx.input_keys[cand]
-			if key == "j" or key == "k" then
-				-- j/k stay free for normal movement, never used as hints
-				ya.emit("arrow", { key == "j" and 1 or -1 })
-			else
-				local file_index = ctx.hint_single[key]
-				if file_index and file_index <= ctx.current_files_count then
-					ya.emit("arrow", { file_index - ctx.cursor - 1 + ctx.offset })
-					return -- jumped
-				end
-				-- invalid key for current file count, wait for next
-			end
-		end
-	end
-end
-
---- State: Double-key mode - waiting for first key
+--- State: waiting for the first chord key
 --- Returns the first key pressed, or nil if cancelled
 --- Uses: input_cands, input_keys, first_key_of_label
 ---@param ctx easyjump.InitResult
@@ -272,10 +176,7 @@ local function read_double_first_key(ctx)
 		elseif ctx.input_keys[cand] == "<C-q>" then
 			ya.emit("plugin", { "quit-ask" })
 			return nil -- quit yazi
-		elseif
-			(ctx.input_keys[cand] == "j" or ctx.input_keys[cand] == "k")
-			and not ctx.first_key_of_label[ctx.input_keys[cand]]
-		then
+		elseif ctx.input_keys[cand] == "j" or ctx.input_keys[cand] == "k" then
 			-- j/k are free while waiting for the first hint: normal movement
 			ya.emit("arrow", { ctx.input_keys[cand] == "j" and 1 or -1 })
 		else
@@ -325,13 +226,7 @@ end
 --- Main input handler with explicit state machine
 ---@param ctx easyjump.InitResult
 local function read_input(ctx)
-	-- Single-key mode: direct jump with one key press
-	if ctx.current_files_count <= #ctx.single_labels then
-		read_single_key(ctx)
-		return
-	end
-
-	-- Double-key mode: state machine with explicit transitions
+	-- Chord state machine: first key, then second key
 	while true do
 		-- State 1: Wait for first key
 		local first_key = read_double_first_key(ctx)
@@ -351,16 +246,14 @@ end
 ---@class(exact) easyjump.state
 ---@field opt_icon_fg string
 ---@field opt_first_key_fg string
----@field single_labels string[]
+---@field opt_dim_fg string
 ---@field double_labels string[]
 ---@field input_keys string[]
 ---@field input_cands table[]
----@field hint_single table<string, number>
 ---@field hint_double table<string, number>
 ---@field hint_pos_label table<string, string>
 ---@field opt_hint_hovered boolean
 ---@field opt_hovered_number_fg string
----@field single_mode boolean
 ---@field entity_label_id number
 ---@field status_mode_saved function?
 ---@field files_indices table<string, number> # file url to index
@@ -372,9 +265,7 @@ end
 ---@field cursor number
 ---@field offset number
 ---@field first_key_of_label table<string, string>
----@field single_labels string[]
 ---@field input_keys string[]
----@field hint_single table<string, number>
 ---@field hint_double table<string, number>
 ---@field input_cands table[]
 
@@ -401,24 +292,17 @@ local init = ya.sync(function(state)
 		end
 	end
 	state.number_width = #tostring(last_idx) + 2
-	state.single_mode = state.current_files_count <= #state.single_labels
 
-	-- Pack labels contiguously over the non-hovered rows (the hovered row keeps
-	-- its motion number), so no label from the pool goes to waste.
-	state.hint_single, state.hint_double, state.hint_pos_label = {}, {}, {}
+	-- Pack chord labels contiguously over the non-hovered rows (the hovered row
+	-- keeps its motion number), so no label from the pool goes to waste.
+	state.hint_double, state.hint_pos_label = {}, {}
 	local packed = 0
 	for i, _ in ipairs(visible_files) do
 		if i ~= hovered_pos or state.opt_hint_hovered then
 			packed = packed + 1
-			local label
-			if state.single_mode then
-				label = state.single_labels[packed]
-				state.hint_single[label] = i
-			else
-				label = state.double_labels[packed]
-				state.hint_double[label] = i
-				first_key_of_label[label:sub(1, 1)] = ""
-			end
+			local label = state.double_labels[packed]
+			state.hint_double[label] = i
+			first_key_of_label[label:sub(1, 1)] = ""
 			state.hint_pos_label[tostring(i)] = label
 		end
 	end
@@ -428,9 +312,7 @@ local init = ya.sync(function(state)
 		cursor = folder.cursor,
 		offset = folder.offset,
 		first_key_of_label = first_key_of_label,
-		single_labels = state.single_labels,
 		input_keys = state.input_keys,
-		hint_single = state.hint_single,
 		hint_double = state.hint_double,
 		input_cands = state.input_cands,
 	}
@@ -449,38 +331,14 @@ return {
 		opts = opts or {}
 		state.opt_icon_fg = opts.icon_fg or "#fda1a1"
 		state.opt_first_key_fg = opts.first_key_fg or "#df6249"
+		state.opt_dim_fg = opts.dim_fg or "#403E3C"
 		state.opt_hint_hovered = opts.hint_hovered == true
 		state.opt_hovered_number_fg = opts.hovered_number_fg or "#575653"
 
-		-- Configure hint keys
-		local using_custom_keys = opts.first_keys ~= nil or opts.second_keys ~= nil
+		-- Chord labels only (first x second, overlap allowed: ww ee ...)
 		local first_keys = normalize_keys(opts.first_keys or DEFAULT_FIRST_KEYS)
 		local second_keys = normalize_keys(opts.second_keys or DEFAULT_SECOND_KEYS)
-
-		-- Validate that first_keys and second_keys don't overlap
-		local valid, err = validate_keys(first_keys, second_keys)
-		if not valid then
-			ya.notify({
-				title = "EZJ",
-				content = err .. " Falling back to defaults.",
-				timeout = 5,
-				level = "error",
-			})
-			-- Fall back to defaults
-			first_keys = DEFAULT_FIRST_KEYS
-			second_keys = DEFAULT_SECOND_KEYS
-			using_custom_keys = false
-		end
-
-		-- Generate labels
-		-- Use default labels for backward compatibility unless custom keys are provided
-		if using_custom_keys then
-			state.single_labels = generate_single_labels(first_keys, second_keys)
-			state.double_labels = generate_double_labels(first_keys, second_keys)
-		else
-			state.single_labels = DEFAULT_SINGLE_LABELS
-			state.double_labels = DEFAULT_DOUBLE_LABELS
-		end
+		state.double_labels = generate_double_labels(first_keys, second_keys)
 		state.input_keys = generate_input_keys(first_keys, second_keys)
 
 		state.input_cands = build_input_cands(state.input_keys)
