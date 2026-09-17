@@ -46,6 +46,6 @@ original authors.
 ## Behavior
 
 - The hovered entry keeps its motion number instead of a hint (opt back in with `hint_hovered = true`), rendered grayed-out so only the letter hints read as jump targets.
-- **Chord labels**: every hint is a two-key chord over the first/second key sets (default `w e a s d` × `w e a s d` → `ww we wa ws wd ew …`). After the first key, matching hints highlight and unreachable ones dim.
+- **Chord labels, single hints when tiny**: every hint is a two-key chord over the first/second key sets (default `w e r a s d` × `w e r a s d` → `ww we wr wa ws wd ew …`). With 6 or fewer visible rows the pool covers them all, so hints collapse to direct single keys (`w e r a s d`). After the first key of a chord, matching hints highlight and unreachable ones dim.
 - **Labels are packed**: the hovered row's hint moves to the next row, so no label from the pool is wasted — the last visible row simply goes unlabeled.
 - While EZJ is waiting for a hint, `j`/`k` move the cursor like normal — they are never consumed as hints.

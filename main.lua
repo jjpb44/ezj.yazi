@@ -152,6 +152,18 @@ local update_double_first_key = ya.sync(function(state, str)
 	state.double_first_key = str
 end)
 
+local get_cursor = ya.sync(function()
+	local folder = cx.active.current
+	return { cursor = folder.cursor, offset = folder.offset }
+end)
+
+--- Jump to a window row (1-based) using a FRESH cursor/offset, so j/k movement
+--- while hinting never skews the relative arrow.
+local function jump_to(file_index)
+	local cur = get_cursor()
+	ya.emit("arrow", { file_index - cur.cursor - 1 + cur.offset })
+end
+
 -- State machine for reading input keys
 -- Each state is a separate function. Type annotations document which fields are used.
 
@@ -214,8 +226,8 @@ local function read_double_second_key(ctx, first_key)
 			local second_key = ctx.input_keys[cand]
 			local double_key = first_key .. second_key
 			local file_index = ctx.hint_double[double_key]
-			if file_index and file_index <= ctx.current_files_count then
-				ya.emit("arrow", { file_index - ctx.cursor - 1 + ctx.offset })
+			if file_index then
+				jump_to(file_index)
 				return "jumped"
 			end
 			-- invalid second key, wait for next
@@ -225,7 +237,40 @@ end
 
 --- Main input handler with explicit state machine
 ---@param ctx easyjump.InitResult
+local function read_single_key(ctx)
+	while true do
+		local cand = ya.which({ cands = ctx.input_cands, silent = true })
+
+		if cand == nil then
+		-- invalid key, wait for next
+		elseif ctx.input_keys[cand] == "<Esc>" or ctx.input_keys[cand] == "z" or ctx.input_keys[cand] == "q" then
+			return -- cancelled
+		elseif ctx.input_keys[cand] == "<C-q>" then
+			ya.emit("plugin", { "quit-ask" })
+			return -- quit yazi
+		elseif ctx.input_keys[cand] == "j" or ctx.input_keys[cand] == "k" then
+			-- j/k are free while waiting for a hint: normal movement
+			ya.emit("arrow", { ctx.input_keys[cand] == "j" and 1 or -1 })
+		else
+			local file_index = ctx.hint_lookup[ctx.input_keys[cand]]
+			if file_index then
+				jump_to(file_index)
+				return -- jumped
+			end
+			-- invalid hint key, wait for next
+		end
+	end
+end
+
+--- Main input handler with explicit state machine
+---@param ctx easyjump.InitResult
 local function read_input(ctx)
+	-- Few visible rows: the hint-key pool covers them all -> direct single keys
+	if ctx.single_mode then
+		read_single_key(ctx)
+		return
+	end
+
 	-- Chord state machine: first key, then second key
 	while true do
 		-- State 1: Wait for first key
@@ -253,6 +298,9 @@ end
 ---@field hint_double table<string, number>
 ---@field hint_pos_label table<string, string>
 ---@field opt_hint_hovered boolean
+---@field first_keys string[]
+---@field hint_lookup table<string, number>
+---@field single_mode boolean
 ---@field opt_hovered_number_fg string
 ---@field entity_label_id number
 ---@field status_mode_saved function?
@@ -268,6 +316,8 @@ end
 ---@field input_keys string[]
 ---@field hint_double table<string, number>
 ---@field input_cands table[]
+---@field single_mode boolean
+---@field hint_lookup table<string, number>
 
 -- init to record file position and the file num
 ---@param state easyjump.state
@@ -293,17 +343,24 @@ local init = ya.sync(function(state)
 	end
 	state.number_width = #tostring(last_idx) + 2
 
-	-- Pack chord labels contiguously over the non-hovered rows (the hovered row
-	-- keeps its motion number), so no label from the pool goes to waste.
-	state.hint_double, state.hint_pos_label = {}, {}
+	-- Chords by default; direct single-key hints when the hint-key pool covers
+	-- every visible row. Labels pack contiguously over the non-hovered rows (the
+	-- hovered row keeps its motion number), so no label goes to waste.
+	state.single_mode = #visible_files <= #state.first_keys
+	local labels = state.single_mode and state.first_keys or state.double_labels
+	state.hint_lookup, state.hint_pos_label = {}, {}
 	local packed = 0
 	for i, _ in ipairs(visible_files) do
 		if i ~= hovered_pos or state.opt_hint_hovered then
 			packed = packed + 1
-			local label = state.double_labels[packed]
-			state.hint_double[label] = i
-			first_key_of_label[label:sub(1, 1)] = ""
-			state.hint_pos_label[tostring(i)] = label
+			local label = labels[packed]
+			if label then
+				state.hint_lookup[label] = i
+				if not state.single_mode then
+					first_key_of_label[label:sub(1, 1)] = ""
+				end
+				state.hint_pos_label[tostring(i)] = label
+			end
 		end
 	end
 
@@ -313,7 +370,8 @@ local init = ya.sync(function(state)
 		offset = folder.offset,
 		first_key_of_label = first_key_of_label,
 		input_keys = state.input_keys,
-		hint_double = state.hint_double,
+		single_mode = state.single_mode,
+		hint_lookup = state.hint_lookup,
 		input_cands = state.input_cands,
 	}
 end)
@@ -323,6 +381,9 @@ local clear_state = ya.sync(function(state)
 	state.files_indices = nil
 	state.current_files_count = nil
 	state.double_first_key = nil
+	state.hint_lookup = nil
+	state.hint_pos_label = nil
+	state.single_mode = nil
 end)
 
 return {
@@ -338,6 +399,7 @@ return {
 		-- Chord labels only (first x second, overlap allowed: ww ee ...)
 		local first_keys = normalize_keys(opts.first_keys or DEFAULT_FIRST_KEYS)
 		local second_keys = normalize_keys(opts.second_keys or DEFAULT_SECOND_KEYS)
+		state.first_keys = first_keys
 		state.double_labels = generate_double_labels(first_keys, second_keys)
 		state.input_keys = generate_input_keys(first_keys, second_keys)
 
