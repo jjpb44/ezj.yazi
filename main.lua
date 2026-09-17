@@ -237,7 +237,7 @@ local function read_single_key(ctx)
 		elseif ctx.input_keys[cand] == "<Esc>" or ctx.input_keys[cand] == "z" or ctx.input_keys[cand] == "q" then
 			return -- cancelled
 		elseif ctx.input_keys[cand] == "<C-q>" then
-			ya.emit("quit", {})
+			ya.emit("plugin", { "quit-ask" })
 			return -- quit yazi
 		else
 			local key = ctx.input_keys[cand]
@@ -270,7 +270,7 @@ local function read_double_first_key(ctx)
 		elseif ctx.input_keys[cand] == "<Esc>" or ctx.input_keys[cand] == "z" or ctx.input_keys[cand] == "q" then
 			return nil -- cancelled
 		elseif ctx.input_keys[cand] == "<C-q>" then
-			ya.emit("quit", {})
+			ya.emit("plugin", { "quit-ask" })
 			return nil -- quit yazi
 		elseif
 			(ctx.input_keys[cand] == "j" or ctx.input_keys[cand] == "k")
@@ -304,7 +304,7 @@ local function read_double_second_key(ctx, first_key)
 		elseif ctx.input_keys[cand] == "<Esc>" or ctx.input_keys[cand] == "z" or ctx.input_keys[cand] == "q" then
 			return "cancelled"
 		elseif ctx.input_keys[cand] == "<C-q>" then
-			ya.emit("quit", {})
+			ya.emit("plugin", { "quit-ask" })
 			return "cancelled" -- quit yazi
 		elseif ctx.input_keys[cand] == "<Backspace>" then
 			update_double_first_key(nil) -- clear UI highlight
