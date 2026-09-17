@@ -117,10 +117,11 @@ local function generate_input_keys(first_keys, second_keys)
 		end
 	end
 
-	-- Control keys ("q" cancels easyjump, so it must not be a hint key)
+	-- Control keys ("q" cancels, "<C-q>" quits yazi; neither may be a hint key)
 	table.insert(keys, "<Esc>")
 	table.insert(keys, "<Backspace>")
 	table.insert(keys, "q")
+	table.insert(keys, "<C-q>")
 	return keys
 end
 
@@ -235,6 +236,9 @@ local function read_single_key(ctx)
 		-- invalid key, wait for next
 		elseif ctx.input_keys[cand] == "<Esc>" or ctx.input_keys[cand] == "z" or ctx.input_keys[cand] == "q" then
 			return -- cancelled
+		elseif ctx.input_keys[cand] == "<C-q>" then
+			ya.emit("quit", {})
+			return -- quit yazi
 		else
 			local key = ctx.input_keys[cand]
 			if key == "j" or key == "k" then
@@ -265,6 +269,9 @@ local function read_double_first_key(ctx)
 		-- invalid key, wait for next
 		elseif ctx.input_keys[cand] == "<Esc>" or ctx.input_keys[cand] == "z" or ctx.input_keys[cand] == "q" then
 			return nil -- cancelled
+		elseif ctx.input_keys[cand] == "<C-q>" then
+			ya.emit("quit", {})
+			return nil -- quit yazi
 		elseif
 			(ctx.input_keys[cand] == "j" or ctx.input_keys[cand] == "k")
 			and not ctx.first_key_of_label[ctx.input_keys[cand]]
@@ -296,6 +303,9 @@ local function read_double_second_key(ctx, first_key)
 		-- invalid key, wait for next
 		elseif ctx.input_keys[cand] == "<Esc>" or ctx.input_keys[cand] == "z" or ctx.input_keys[cand] == "q" then
 			return "cancelled"
+		elseif ctx.input_keys[cand] == "<C-q>" then
+			ya.emit("quit", {})
+			return "cancelled" -- quit yazi
 		elseif ctx.input_keys[cand] == "<Backspace>" then
 			update_double_first_key(nil) -- clear UI highlight
 			return "backspace" -- transition back to first key state
