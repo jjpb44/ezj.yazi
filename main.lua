@@ -112,7 +112,6 @@ local toggle_ui = ya.sync(function(st)
 	-- Entity.number), padded to the same width so the filename never shifts.
 	st.entity_number_saved = Entity.number
 	local orig_number = st.entity_number_saved
-	local width = st.number_width or 3
 
 	Entity.number = function(_, index, file, hovered, last_index)
 		local pos = st.files_indices[tostring(file.url)]
@@ -121,8 +120,7 @@ local toggle_ui = ya.sync(function(st)
 			if orig_number then
 				-- hovered row keeps its absolute number, grayed out while EZJ is active
 				local idx = tostring(file.idx or index)
-				local pad = string.rep(" ", math.max(0, width - #idx))
-				return ui.Line({ ui.Span(pad .. idx):fg(st.opt_hovered_number_fg) })
+				return ui.Line({ ui.Span(idx .. " "):fg(st.opt_hovered_number_fg) })
 			end
 			return ui.Line({})
 		end
