@@ -3,10 +3,10 @@
 -- Default hint keys: left-hand home column-first. first_keys x second_keys
 -- (overlap is INTENTIONAL - chords like "ww" are valid labels).
 -- stylua: ignore
-local DEFAULT_FIRST_KEYS = { "w", "e", "a", "s", "d" }
+local DEFAULT_FIRST_KEYS = { "w", "e", "r", "a", "s", "d" }
 
 -- stylua: ignore
-local DEFAULT_SECOND_KEYS = { "w", "e", "a", "s", "d" }
+local DEFAULT_SECOND_KEYS = { "w", "e", "r", "a", "s", "d" }
 
 ---@param str string
 ---@return string[]
