@@ -438,6 +438,7 @@ return {
 	setup = function(state, opts)
 		opts = opts or {}
 		state.opt_icon_fg = opts.icon_fg or "#fda1a1"
+		state.opt_first_key_fg = opts.first_key_fg or "#df6249"
 		state.opt_hint_hovered = opts.hint_hovered == true
 		state.opt_hovered_number_fg = opts.hovered_number_fg or "#575653"
 
