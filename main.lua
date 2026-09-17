@@ -120,7 +120,9 @@ local toggle_ui = ya.sync(function(st)
 			if orig_number then
 				-- hovered row keeps its absolute number, grayed out while EZJ is active
 				local idx = tostring(file.idx or index)
-				return ui.Line({ ui.Span(idx .. " "):fg(st.opt_hovered_number_fg) })
+				local w = (tonumber(last_index) or 0) >= 10 and 2 or 1
+				local pad = string.rep(" ", math.max(0, w - #idx))
+				return ui.Line({ ui.Span(pad .. idx .. " "):fg(st.opt_hovered_number_fg) })
 			end
 			return ui.Line({})
 		end
