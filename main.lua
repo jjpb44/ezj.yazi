@@ -222,7 +222,7 @@ local function read_double_second_key(ctx, first_key)
 		else
 			local second_key = ctx.input_keys[cand]
 			local double_key = first_key .. second_key
-			local file_index = ctx.hint_double[double_key]
+			local file_index = ctx.hint_lookup[double_key]
 			if file_index then
 				jump_to(file_index)
 				return "jumped"
@@ -292,7 +292,6 @@ end
 ---@field double_labels string[]
 ---@field input_keys string[]
 ---@field input_cands table[]
----@field hint_double table<string, number>
 ---@field hint_pos_label table<string, string>
 ---@field opt_hint_hovered boolean
 ---@field first_keys string[]
@@ -311,7 +310,6 @@ end
 ---@field offset number
 ---@field first_key_of_label table<string, string>
 ---@field input_keys string[]
----@field hint_double table<string, number>
 ---@field input_cands table[]
 ---@field single_mode boolean
 ---@field hint_lookup table<string, number>
