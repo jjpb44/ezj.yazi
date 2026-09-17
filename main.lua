@@ -194,7 +194,7 @@ local toggle_ui = ya.sync(function(st)
 
 	Entity.number = function(_, index, file, hovered, last_index)
 		local pos = st.files_indices[tostring(file.url)]
-		if not pos then
+		if not pos or (hovered == index and not st.opt_hint_hovered) then
 			if orig_number then
 				return orig_number(_, index, file, hovered, last_index)
 			end
@@ -245,12 +245,17 @@ local function read_single_key(ctx)
 			return -- cancelled
 		else
 			local key = ctx.input_keys[cand]
-			local file_index = ctx.single_key_files[key]
-			if file_index and file_index <= ctx.current_files_count then
-				ya.emit("arrow", { file_index - ctx.cursor - 1 + ctx.offset })
-				return -- jumped
+			if key == "j" or key == "k" then
+				-- j/k stay free for normal movement, never used as hints
+				ya.emit("arrow", { key == "j" and 1 or -1 })
+			else
+				local file_index = ctx.single_key_files[key]
+				if file_index and file_index <= ctx.current_files_count then
+					ya.emit("arrow", { file_index - ctx.cursor - 1 + ctx.offset })
+					return -- jumped
+				end
+				-- invalid key for current file count, wait for next
 			end
-			-- invalid key for current file count, wait for next
 		end
 	end
 end
@@ -268,8 +273,12 @@ local function read_double_first_key(ctx)
 		-- invalid key, wait for next
 		elseif ctx.input_keys[cand] == "<Esc>" or ctx.input_keys[cand] == "z" or ctx.input_keys[cand] == "q" then
 			return nil -- cancelled
-		elseif ctx.input_keys[cand] == "<Backspace>" then
-		-- already at first key state, ignore backspace
+		elseif
+			(ctx.input_keys[cand] == "j" or ctx.input_keys[cand] == "k")
+			and not ctx.first_key_of_label[ctx.input_keys[cand]]
+		then
+			-- j/k are free while waiting for the first hint: normal movement
+			ya.emit("arrow", { ctx.input_keys[cand] == "j" and 1 or -1 })
 		else
 			local key = ctx.input_keys[cand]
 			if ctx.first_key_of_label[key] then
@@ -411,7 +420,7 @@ return {
 	setup = function(state, opts)
 		opts = opts or {}
 		state.opt_icon_fg = opts.icon_fg or "#fda1a1"
-		state.opt_first_key_fg = opts.first_key_fg or "#df6249"
+		state.opt_hint_hovered = opts.hint_hovered == true
 
 		-- Configure hint keys
 		local using_custom_keys = opts.first_keys ~= nil or opts.second_keys ~= nil

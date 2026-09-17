@@ -41,3 +41,8 @@ Gutter placement requires relative-motions line numbers to be active; without
 them hints still render, but filenames may shift. Upstream repos carry no
 LICENSE file — this fork keeps the same code provenance and credits the
 original authors.
+
+## Behavior
+
+- The hovered entry keeps its motion number instead of a hint (opt back in with `hint_hovered = true`), freeing one label combination.
+- While EZJ is waiting for a hint, `j`/`k` move the cursor like normal — they are never consumed as hints.
