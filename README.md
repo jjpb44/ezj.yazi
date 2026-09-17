@@ -44,5 +44,6 @@ original authors.
 
 ## Behavior
 
-- The hovered entry keeps its motion number instead of a hint (opt back in with `hint_hovered = true`), freeing one label combination.
+- The hovered entry keeps its motion number instead of a hint (opt back in with `hint_hovered = true`), rendered grayed-out so only the letter hints read as jump targets.
+- **Labels are packed**: the hovered row's hint moves to the next row, so no label from the pool is wasted — the last visible row simply goes unlabeled.
 - While EZJ is waiting for a hint, `j`/`k` move the cursor like normal — they are never consumed as hints.

@@ -124,17 +124,6 @@ local function generate_input_keys(first_keys, second_keys)
 	return keys
 end
 
---- Build lookup table from label list
----@param labels string[]
----@return table<string, number>
-local function build_label_lookup(labels)
-	local lookup = {}
-	for i, v in ipairs(labels) do
-		lookup[v] = i
-	end
-	return lookup
-end
-
 --- Build input candidates for ya.which
 ---@param input_keys string[]
 ---@return table[]
@@ -194,14 +183,17 @@ local toggle_ui = ya.sync(function(st)
 
 	Entity.number = function(_, index, file, hovered, last_index)
 		local pos = st.files_indices[tostring(file.url)]
-		if not pos or (hovered == index and not st.opt_hint_hovered) then
+		local label = pos and st.hint_pos_label[tostring(pos)]
+		if not label then
 			if orig_number then
-				return orig_number(_, index, file, hovered, last_index)
+				-- hovered row keeps its absolute number, grayed out while EZJ is active
+				local idx = tostring(file.idx or index)
+				local pad = string.rep(" ", math.max(0, width - 1 - #idx))
+				return ui.Line({ ui.Span(pad .. idx .. " "):fg(st.opt_hovered_number_fg) })
 			end
 			return ui.Line({})
 		end
 
-		local label = single and st.single_labels[pos] or st.double_labels[pos]
 		local pad = string.rep(" ", math.max(0, width - 1 - #label))
 		if not single and st.double_first_key ~= nil and label:sub(1, 1) == st.double_first_key then
 			return ui.Line({
@@ -249,7 +241,7 @@ local function read_single_key(ctx)
 				-- j/k stay free for normal movement, never used as hints
 				ya.emit("arrow", { key == "j" and 1 or -1 })
 			else
-				local file_index = ctx.single_key_files[key]
+				local file_index = ctx.hint_single[key]
 				if file_index and file_index <= ctx.current_files_count then
 					ya.emit("arrow", { file_index - ctx.cursor - 1 + ctx.offset })
 					return -- jumped
@@ -310,7 +302,7 @@ local function read_double_second_key(ctx, first_key)
 		else
 			local second_key = ctx.input_keys[cand]
 			local double_key = first_key .. second_key
-			local file_index = ctx.double_key_files[double_key]
+			local file_index = ctx.hint_double[double_key]
 			if file_index and file_index <= ctx.current_files_count then
 				ya.emit("arrow", { file_index - ctx.cursor - 1 + ctx.offset })
 				return "jumped"
@@ -352,9 +344,13 @@ end
 ---@field single_labels string[]
 ---@field double_labels string[]
 ---@field input_keys string[]
----@field single_key_files table<string, number>
----@field double_key_files table<string, number>
 ---@field input_cands table[]
+---@field hint_single table<string, number>
+---@field hint_double table<string, number>
+---@field hint_pos_label table<string, string>
+---@field opt_hint_hovered boolean
+---@field opt_hovered_number_fg string
+---@field single_mode boolean
 ---@field entity_label_id number
 ---@field status_mode_saved function?
 ---@field files_indices table<string, number> # file url to index
@@ -368,8 +364,8 @@ end
 ---@field first_key_of_label table<string, string>
 ---@field single_labels string[]
 ---@field input_keys string[]
----@field single_key_files table<string, number>
----@field double_key_files table<string, number>
+---@field hint_single table<string, number>
+---@field hint_double table<string, number>
 ---@field input_cands table[]
 
 -- init to record file position and the file num
@@ -384,16 +380,38 @@ local init = ya.sync(function(state)
 	state.current_files_count = #visible_files
 
 	local last_idx = 1
+	local hovered_pos = 0
 	for i, file in ipairs(visible_files) do
 		state.files_indices[tostring(file.url)] = i
 		if (file.idx or i) > last_idx then
 			last_idx = file.idx or i
 		end
-		if state.current_files_count > #state.single_labels then
-			first_key_of_label[state.double_labels[i]:sub(1, 1)] = ""
+		if (file.idx or i) == folder.cursor + 1 then
+			hovered_pos = i
 		end
 	end
 	state.number_width = #tostring(last_idx) + 2
+	state.single_mode = state.current_files_count <= #state.single_labels
+
+	-- Pack labels contiguously over the non-hovered rows (the hovered row keeps
+	-- its motion number), so no label from the pool goes to waste.
+	state.hint_single, state.hint_double, state.hint_pos_label = {}, {}, {}
+	local packed = 0
+	for i, _ in ipairs(visible_files) do
+		if i ~= hovered_pos or state.opt_hint_hovered then
+			packed = packed + 1
+			local label
+			if state.single_mode then
+				label = state.single_labels[packed]
+				state.hint_single[label] = i
+			else
+				label = state.double_labels[packed]
+				state.hint_double[label] = i
+				first_key_of_label[label:sub(1, 1)] = ""
+			end
+			state.hint_pos_label[tostring(i)] = label
+		end
+	end
 
 	return {
 		current_files_count = state.current_files_count,
@@ -402,8 +420,8 @@ local init = ya.sync(function(state)
 		first_key_of_label = first_key_of_label,
 		single_labels = state.single_labels,
 		input_keys = state.input_keys,
-		single_key_files = state.single_key_files,
-		double_key_files = state.double_key_files,
+		hint_single = state.hint_single,
+		hint_double = state.hint_double,
 		input_cands = state.input_cands,
 	}
 end)
@@ -421,6 +439,7 @@ return {
 		opts = opts or {}
 		state.opt_icon_fg = opts.icon_fg or "#fda1a1"
 		state.opt_hint_hovered = opts.hint_hovered == true
+		state.opt_hovered_number_fg = opts.hovered_number_fg or "#575653"
 
 		-- Configure hint keys
 		local using_custom_keys = opts.first_keys ~= nil or opts.second_keys ~= nil
@@ -453,9 +472,6 @@ return {
 		end
 		state.input_keys = generate_input_keys(first_keys, second_keys)
 
-		-- Build lookup tables
-		state.single_key_files = build_label_lookup(state.single_labels)
-		state.double_key_files = build_label_lookup(state.double_labels)
 		state.input_cands = build_input_cands(state.input_keys)
 	end,
 
