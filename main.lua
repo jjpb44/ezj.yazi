@@ -122,7 +122,7 @@ local toggle_ui = ya.sync(function(st)
 				local idx = tostring(file.idx or index)
 				local w = (tonumber(last_index) or 0) >= 10 and 2 or 1
 				local pad = string.rep(" ", math.max(0, w - #idx))
-				return ui.Line({ ui.Span(pad .. idx):fg(st.opt_hovered_number_fg) })
+				return ui.Line({ ui.Span(pad .. idx .. " "):fg(st.opt_hovered_number_fg) })
 			end
 			return ui.Line({})
 		end
@@ -131,13 +131,13 @@ local toggle_ui = ya.sync(function(st)
 			if label:sub(1, 1) == st.double_first_key then
 				return ui.Line({
 					ui.Span(label:sub(1, 1)):fg(st.opt_first_key_fg),
-					ui.Span(label:sub(2)):fg(st.opt_icon_fg),
+					ui.Span(label:sub(2) .. " "):fg(st.opt_icon_fg),
 				})
 			end
 			-- waiting for the second key: dim unreachable hints
-			return ui.Line({ ui.Span(label):fg(st.opt_dim_fg) })
+			return ui.Line({ ui.Span(label .. " "):fg(st.opt_dim_fg) })
 		end
-		return ui.Line({ ui.Span(label):fg(st.opt_icon_fg) })
+		return ui.Line({ ui.Span(label .. " "):fg(st.opt_icon_fg) })
 	end
 
 	st.status_mode_saved = Status.mode
